@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Muninn: what an agent's search remembers</title>
+<meta name="description" content="{{FLIGHTS}} macro backtests, the bar they had to clear, and what survived. A note for Corvus Research by Dac Vinh Nguyen.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+Runic&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sky:#0a0e13; --sky2:#10161e; --panel:#121a24; --rule:#243040; --faint:#1b2430;
+  --ink:#ebe5d8; --soft:#c3bcae; --dim:#8a93a0; --ghost:#5f6b7a;
+  --amber:#f2b441; --amber2:#ffd27a; --code:#0d131a; --rust:#e0805f; --good:#9fd3b4; --bad:#d98c8c;
+  --serif:"Source Serif 4",Georgia,serif; --display:"Cormorant Garamond",Georgia,serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace; --hand:"Caveat",cursive; --rune:"Noto Sans Runic",serif;
+}
+*{box-sizing:border-box}
+html{background:var(--sky)}
+body{margin:0;background:var(--sky);color:var(--ink);font-family:var(--serif);font-size:18px;line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+a{color:var(--amber2);text-decoration:none;border-bottom:1px solid rgba(242,180,65,.35)}
+a:hover{border-bottom-color:var(--amber)}
+.mono{font-family:var(--mono)}
+.amber{color:var(--amber)}
+
+/* hero */
+.hero{position:relative;min-height:100vh;min-height:100svh;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-start;padding:7vh 24px 250px}
+#sky{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hero-inner{position:relative;z-index:2;max-width:980px;margin:0 auto;width:100%}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+.ravens{display:flex;gap:28px;margin:22px 0 10px;align-items:center}
+.raven{display:flex;align-items:center;gap:12px}
+.rune{font-family:var(--rune);font-size:30px;line-height:1;width:46px;height:46px;border:1px solid var(--rule);border-radius:50%;display:grid;place-items:center;color:var(--amber)}
+.raven b{display:block;font-family:var(--display);font-size:20px;font-weight:600;letter-spacing:.02em}
+.raven span{display:block;font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(40px,6.4vw,78px);line-height:1.02;margin:.25em 0 .3em;max-width:13em;letter-spacing:-.005em}
+h1 em{font-style:italic;color:var(--amber2)}
+.stanza{font-family:var(--display);font-style:italic;font-size:19px;line-height:1.45;color:var(--soft);margin:0 0 22px;border-left:1px solid var(--rule);padding-left:16px}
+.stanza small{display:block;font-family:var(--mono);font-style:normal;font-size:11px;color:var(--dim);margin-top:6px;letter-spacing:.04em}
+.lede{font-size:20px;max-width:36em;color:var(--ink)}
+.numbers{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:22px;margin:30px 0 0;max-width:940px}
+.numbers div{border-top:1px solid var(--rule);padding-top:12px}
+.numbers b{display:block;font-family:var(--mono);font-weight:500;font-size:clamp(24px,3.1vw,36px);color:var(--amber);line-height:1.1;white-space:nowrap}
+.numbers span{display:block;font-size:14.5px;color:var(--soft);line-height:1.4;margin-top:6px}
+
+/* folios */
+main{position:relative;z-index:2}
+section{max-width:980px;margin:0 auto;padding:84px 24px 20px}
+.folio{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--amber)}
+h2{font-family:var(--display);font-weight:600;font-size:clamp(32px,4.4vw,50px);line-height:1.08;margin:.2em 0 .5em}
+section p{max-width:40em;margin:0 0 1em}
+figure{margin:34px 0 10px}
+figcaption{font-size:14.5px;color:var(--soft);max-width:44em;margin-top:10px;line-height:1.5}
+.chart{width:100%;position:relative;overflow:hidden}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.note{font-family:var(--hand);font-size:21px;fill:var(--amber2);color:var(--amber2)}
+svg text{font-family:var(--mono);font-size:11px;fill:var(--dim)}
+svg .lab{fill:var(--soft);font-size:12px}
+svg .big{font-size:13px;fill:var(--ink)}
+.tip{position:absolute;pointer-events:none;background:#0d131a;border:1px solid var(--rule);padding:8px 10px;font-size:13px;line-height:1.35;color:var(--ink);border-radius:3px;max-width:280px;opacity:0;transition:opacity .12s;z-index:5}
+.tip i{font-style:normal;font-family:var(--mono);color:var(--amber)}
+
+/* the night widget */
+.night{margin:34px 0 0;border:1px solid var(--rule);background:linear-gradient(180deg,var(--sky2),var(--sky));padding:18px 18px 12px;border-radius:4px}
+.night h3{font-family:var(--display);font-size:24px;font-weight:600;margin:0 0 4px}
+.night p{font-size:15px;color:var(--soft);margin:0 0 12px}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 10px}
+button{font-family:var(--mono);font-size:13px;letter-spacing:.04em;color:var(--amber);background:transparent;border:1px solid rgba(242,180,65,.55);padding:9px 14px;border-radius:3px;cursor:pointer}
+button:hover{background:rgba(242,180,65,.08)}
+button:active{transform:translateY(1px)}
+#nightline{font-size:15px;min-height:2.9em;color:var(--ink);margin:4px 0 0}
+#nightline i{font-style:normal;font-family:var(--mono);color:var(--amber)}
+
+/* tables, code */
+.tablewrap{overflow-x:auto;max-width:100%}
+table{border-collapse:collapse;width:100%;max-width:760px;margin:20px 0 6px;font-size:15px}
+th,td{text-align:left;padding:8px 12px 8px 0;border-bottom:1px solid var(--faint);vertical-align:top}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:400}
+td.n{font-family:var(--mono);white-space:nowrap}
+pre{background:var(--code);border:1px solid var(--rule);border-left:2px solid var(--amber);padding:18px 20px;overflow-x:auto;font-family:var(--mono);font-size:13.5px;line-height:1.6;color:var(--ink);margin:26px 0;max-width:820px}
+pre .c{color:var(--dim)}
+pre .k{color:var(--amber2)}
+ol.steps{max-width:40em;padding-left:1.2em;margin:0 0 1em}
+ol.steps li{margin:0 0 .7em;padding-left:.3em}
+ol.steps b{font-weight:600}
+.closing{font-family:var(--display);font-style:italic;font-size:27px;line-height:1.3;color:var(--amber2);max-width:28em;margin:30px 0 10px}
+
+/* receipts */
+.receipts{font-size:15.5px;color:var(--soft)}
+.receipts p{max-width:46em}
+.receipts b{color:var(--ink);font-weight:600}
+.sign{margin-top:46px;border-top:1px solid var(--rule);padding-top:20px;font-size:15px;color:var(--soft)}
+.sign b{font-family:var(--display);font-size:24px;color:var(--ink);font-weight:600;display:block}
+footer{max-width:980px;margin:0 auto;padding:30px 24px 70px;font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.04em}
+
+@media (max-width:700px){
+  body{font-size:17px}
+  .hero{padding-top:5vh}
+  .numbers{grid-template-columns:1fr;gap:12px}
+  .ravens{gap:16px}
+  .rune{width:40px;height:40px;font-size:25px}
+  .stanza{font-size:17px}
+  .lede{font-size:18px}
+  section{padding:64px 18px 14px}
+  pre{font-size:12px;padding:14px}
+  table{font-size:13px}
+  th,td{padding:7px 8px 7px 0}
+}
+
+/* paper: print, and ?print on screen */
+@media print{
+  @page{size:A4;margin:12mm 12mm}
+}
+.paper{--code:#f1ece2;--sky:#fbf9f4;--sky2:#f3efe6;--panel:#f3efe6;--rule:#d5cdbd;--faint:#e6dfd2;--ink:#17140f;--soft:#433d33;--dim:#6f675b;--ghost:#9aa3ad;--amber:#a8650c;--amber2:#8a5208;--rust:#b4512f;--good:#2f7a52;--bad:#a14040}
+.paper body,body.paper{font-size:9.4pt;line-height:1.42}
+.paper #sky,.paper .night .btns,.paper .tip{display:none}
+.paper .hero{min-height:0;padding:0 0 2mm}
+.paper .hero-inner,.paper section,.paper footer{max-width:none}
+.paper h1{font-size:25pt;margin:.1em 0 .15em}
+.paper .stanza{font-size:9.6pt;margin-bottom:6px;line-height:1.3}
+.paper .lede{font-size:10.2pt;max-width:none}
+.paper .numbers{margin-top:8px;gap:10px}
+.paper .numbers b{font-size:15pt}
+.paper .numbers span{font-size:8.2pt}
+.paper .ravens{margin:6px 0 0}
+.paper .rune{width:26px;height:26px;font-size:15px}
+.paper .raven b{font-size:13pt}
+.paper section{padding:8px 0 0}
+.paper section p{max-width:none;margin:0 0 .5em}
+.paper h2{font-size:16pt;margin:.05em 0 .25em}
+.paper figure{margin:6px 0 2px;break-inside:avoid}
+.paper figcaption{font-size:8pt;max-width:none;margin-top:4px}
+.paper .night{padding:8px 10px;margin-top:8px;break-inside:avoid}
+.paper .night h3{font-size:13pt}
+.paper .night p,.paper #nightline{font-size:9pt}
+.paper pre{font-size:8.2pt;padding:8px 10px;margin:10px 0}
+.paper table{font-size:9pt;margin:8px 0}
+.paper th,.paper td{padding:4px 8px 4px 0}
+.paper .closing{font-size:15pt;margin:12px 0 4px}
+.paper .receipts{font-size:8.8pt}
+.paper .sign{margin-top:12px;padding-top:8px}
+.paper .sign b{font-size:14pt}
+.paper footer{padding:8px 0 0}
+.paper #flock,.paper #ledger{break-before:page}
+.paper .tablewrap:has(.tries){display:none}
+.paper ol.steps{columns:2;column-gap:24px;margin-bottom:4px}
+.paper ol.steps li{break-inside:avoid;margin-bottom:.4em}
+.paper .cols{columns:2;column-gap:24px}
+.paper .cols p{break-inside:avoid;margin:0 0 .45em}
+.paper .closing{font-size:13pt;margin:6px 0 2px}
+.paper .eyebrow,.paper .folio{font-size:8pt}
+</style>
+</head>
+<body>
+<header class="hero" id="top">
+  <canvas id="sky" aria-hidden="true"></canvas>
+  <div class="hero-inner">
+    <div class="eyebrow">A note for Corvus Research · Dac Vinh Nguyen · {{MONTH}}</div>
+    <div class="ravens">
+      <div class="raven"><div class="rune">ᚺ</div><div><b>Huginn</b><span>thought · the search</span></div></div>
+      <div class="raven"><div class="rune">ᛗ</div><div><b>Muninn</b><span>memory · the ledger</span></div></div>
+    </div>
+    <h1>Odin feared more for <em>Memory</em> than for Thought.</h1>
+    <p class="stanza">O'er Mithgarth Hugin and Munin both<br>Each day set forth to fly;<br>For Hugin I fear lest he come not home,<br>But for Munin my care is more.<small>Grímnismál, translated by Henry Adams Bellows, 1923</small></p>
+    <p class="lede">Your posting says agents make it cheap to test thousands of ideas, and so cheap to overfit. I let a search fly {{FLIGHTS}} macro ideas over {{YEARS_IN}} years. The best, {{WINNER_PRETTY}}, had a Sharpe of {{WIN_IN}}, then {{WIN_OUT}} over the next {{YEARS_OUT}} years. A ledger of every flight could tell before the market did.</p>
+    <div class="numbers">
+      <div><b>{{WIN_IN}} → {{WIN_OUT}}</b><span>Sharpe of the best of {{FLIGHTS}} flights, in sample and after</span></div>
+      <div><b>{{P_PCT}}</b><span>of calendars where nothing can be predicted find a better best flight</span></div>
+      <div><b>{{TOP_LL}} of {{TOP_N}}</b><span>top flights came from one family, whose average Sharpe was {{LL_IN}}</span></div>
+    </div>
+  </div>
+</header>
+
+<main>
+<section id="flight">
+  <div class="folio">I · Huginn's best flight</div>
+  <h2>The winner looked like a discovery.</h2>
+  <p>Huginn is the search. It flew seven families of macro signals over fifteen ETFs in equities, bonds, commodities and currencies: trend, moving-average crosses, reversals, cross-sectional momentum, trend switched by a regime, one market leading another, and a macro indicator timing a market. Each family came in several look-backs, asset groups, volatility settings and rebalancing speeds: {{FLIGHTS_SEEN}} flights, {{FLIGHTS}} of them in the market often enough to judge.</p>
+  <p>Muninn is the ledger. It keeps every flight and flies it again on {{ROTATIONS}} calendars rotated by a year or more. There a signal keeps its habits, its costs and its likeness to every other flight, but it cannot know the next day. The best flight a whole search finds on such a calendar is the bar.</p>
+  <figure>
+    <div class="chart" id="winner"></div>
+    <figcaption>{{WINNER_PRETTY_CAP}}, scaled to 10% volatility in sample, against the best flights of sixteen rotated calendars. Its Sharpe was {{WIN_IN}} in sample and {{WIN_OUT}} after 2016. Luck alone finds a best of {{NULL_MEAN}} on average, and beats {{WIN_IN}} on {{P_PCT}} of calendars.</figcaption>
+  </figure>
+  <div class="night" id="nightbox">
+    <h3>Fly a night where nothing can be predicted</h3>
+    <p>Each night is one rotated calendar. The whole search flies again, and the best flight lands on the line. The amber mark is the real winner.</p>
+    <div class="btns"><button id="one">Fly one night</button><button id="all">Fly all {{ROTATIONS}}</button><button id="reset">Clear</button></div>
+    <div class="chart" id="nights"></div>
+    <div id="nightline">Of all {{ROTATIONS}} nights, {{P_NIGHTS}} found a better best flight than the real winner.</div>
+  </div>
+</section>
+
+<section id="flock">
+  <div class="folio">II · The leaderboard is a census</div>
+  <h2>The top goes to the family that flew most.</h2>
+  <p>Rank the flights by Sharpe and the top belongs to whichever family flew most, not the one that knew most. One market leading another was {{LL_N}} of the {{FLIGHTS}} flights. Its average Sharpe was {{LL_IN}} in sample and {{LL_OUT}} after, yet it took {{TOP_LL}} of the top {{TOP_N}} places. On the calendars where nothing can be predicted it supplied the best flight {{NULL_LL}} times in {{ROTATIONS}}. Many loosely related flights are many lottery tickets.</p>
+  <figure>
+    <div class="chart" id="birds"></div>
+    <figcaption>Every bird is one flight, placed by its in-sample Sharpe. Amber: the top {{TOP_N}}, which averaged {{TOP_IN}} in sample and {{TOP_OUT}} after. The lines mark the best flight of a rotated calendar: {{NULL_MEAN}} on average, {{BAR95}} at the 95th percentile.</figcaption>
+  </figure>
+</section>
+
+<section id="survive">
+  <div class="folio">III · What survives is the flock</div>
+  <h2>Judge the family, not the bird.</h2>
+  <p>A flight's rotated calendars keep everything about it except timing, so its Sharpe minus theirs is the part only timing explains. Averaged over a family, that margin held. The four families with {{T_LO}} to {{T_HI}} of timing in sample all earned after 2016, {{GOOD_LO}} to {{GOOD_HI}}. The three with {{BAD_T}} or less all lost, {{BAD_LO}} to {{BAD_HI}}.</p>
+  <figure>
+    <div class="chart" id="families"></div>
+    <figcaption>Each family's timing in sample, its Sharpe minus its own rotated calendars, against its Sharpe after 2016. Circles grow with the number of flights.</figcaption>
+  </figure>
+  <p>It holds when the split moves and when costs double. In every version the best single flight failed afterwards, at {{ROB_OUT_LO}} to {{ROB_OUT_HI}}, and luck beat it on {{ROB_P_LO}} to {{ROB_P_HI}} of calendars. Family timing and later Sharpe kept their order, with rank correlation {{ROB_RC_LO}} to {{ROB_RC_HI}}.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>In sample</th><th>Best flight</th><th>Sharpe in → after</th><th>Luck beats it</th><th>Timing vs after, rank corr.</th></tr></thead>
+    <tbody>{{ROB_ROWS}}</tbody>
+  </table></div>
+</section>
+
+<section id="ledger">
+  <div class="folio">IV · Muninn in the agent loop</div>
+  <h2>Not a formula. A habit.</h2>
+  <p>The agent writes down every flight, and the ledger flies them again where nothing can be predicted.</p>
+<pre><span class="k">from</span> muninn <span class="k">import</span> Ledger
+
+book = Ledger(returns, split=<span class="k">"2016-12-31"</span>)      <span class="c"># {{ROTATIONS}} rotated calendars</span>
+<span class="k">for</span> idea <span class="k">in</span> agent.propose():                    <span class="c"># Huginn: every idea, kept or not</span>
+    book.record(idea.name, idea.family, idea.weights)
+
+book.p_value({{WIN_IN}})    <span class="c"># {{P_DEC}}: luck finds a better best on {{P_PCT}} of calendars</span>
+book.bar(<span class="k">0.95</span>)        <span class="c"># {{BAR95}}: the best flight luck finds, 95th percentile</span>
+book.families()       <span class="c"># each family's Sharpe minus its own rotated calendars</span></pre>
+  <ol class="steps">
+    <li><b>Record every flight, the failures too.</b> The bar is set by all of them, and an agent that adapts to what it has seen hides most of its flights unless something writes them down.</li>
+    <li><b>Measure the bar, don't assume it.</b> Counted three ways, the same {{FLIGHTS}} flights are {{PR_TRIES}}, {{LJ_TRIES}} or {{ROT_TRIES}} independent tries, and the bar moves from {{PR_BAR}} to {{ROT_BAR}}. The rotated calendars need no count: they already know how alike the flights are. Here they took {{LEDGER_SECONDS}} seconds on a laptop.</li>
+    <li><b>Promote families, not winners.</b> A family's margin over its own rotated calendars is the part of its Sharpe that is timing.</li>
+    <li><b>Track forward what was promoted,</b> against the bar of the search that found it.</li>
+  </ol>
+  <div class="tablewrap"><table class="tries">
+    <thead><tr><th>Counting the tries</th><th>Independent tries</th><th>Expected best by luck</th></tr></thead>
+    <tbody>{{TRY_ROWS}}</tbody>
+  </table></div>
+  <p class="closing">Your agents already plan around their compute. Muninn gives them a second budget: how much luck the search has already spent.</p>
+</section>
+
+<section id="receipts" class="receipts">
+  <div class="folio">V · Receipts</div>
+  <div class="cols">
+  <p><b>Data.</b> Fifteen ETFs ({{ASSETS}}) and three indicators (the VIX, the 10-year yield and the 3-month bill), daily adjusted closes from Yahoo, {{PANEL_START}} to {{PANEL_END}}. In sample {{IN_START}} to {{IN_END}} ({{YEARS_IN}} years); after, {{OUT_START}} to {{PANEL_END}} ({{YEARS_OUT}} years). Positions are set at a close and held the next day, at {{COST}} basis points per unit of turnover.</p>
+  <p><b>What it is not.</b> A grid of {{FLIGHTS_SEEN}} flights stands in for an agent. A real agent adapts to what it has seen, which hides its flights and makes the ledger matter more. There is no carry or value, which need futures curves, and ETFs stand in for futures. The probability of backtest overfitting for the whole search, by combinatorially symmetric cross-validation over 16 blocks, is {{PBO}}.</p>
+  <p><b>Checks.</b> {{CHECKS}} rules the study depends on, each seen to fail: {{FAULTS}} planted faults, from a signal that reads tomorrow's price to calendars that are never rotated, were all caught. Every number on this page is read from <span class="mono">results.json</span>, which <span class="mono">study.py</span> writes.</p>
+  <p><b>How it was made.</b> With Claude Code as my coding agent, which is how the role describes the work. Code and checks: <a href="{{REPO}}">{{REPO_SHORT}}</a>.</p>
+  </div>
+  <div class="sign"><b>Dac Vinh Nguyen</b>MSc Computational Finance, Royal Holloway, University of London · Research Consultant on WorldQuant's BRAIN platform · <a href="https://vinhdac.github.io/">vinhdac.github.io</a></div>
+</section>
+</main>
+<footer>Muninn · {{MONTH}} · Bailey and López de Prado (2014), the deflated Sharpe ratio · Bailey, Borwein, López de Prado and Zhu (2017), the probability of backtest overfitting · Li and Ji (2005), effective number of tests · White (2000), a reality check for data snooping</footer>
+<div class="tip" id="tip"></div>
+
+<script>
+const D = /*DATA*/;
+const Q = new URLSearchParams(location.search);
+const STILL = Q.has("still") || Q.has("print") || matchMedia("(prefers-reduced-motion: reduce)").matches;
+if (Q.has("print")) { document.documentElement.classList.add("paper"); document.body.classList.add("paper"); }
+if (Q.has("hero")) document.getElementById("top").style.minHeight = (+Q.get("hero") || 900) + "px";
+addEventListener("beforeprint", () => { document.documentElement.classList.add("paper"); drawAll(); });
+addEventListener("afterprint", () => { if (!Q.has("print")) document.documentElement.classList.remove("paper"); drawAll(); });
+const MINUS = "−";
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = (x, d = 2) => (x < 0 ? MINUS : "") + Math.abs(x).toFixed(d);
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function svgIn(box, w, h) {
+  box.innerHTML = "";
+  return el("svg", { viewBox: `0 0 ${w} ${h}`, width: w, height: h, role: "img" }, box);
+}
+function text(s, x, y, attrs = {}, parent) {
+  const t = el("text", Object.assign({ x, y }, attrs), parent);
+  t.textContent = s;
+  return t;
+}
+
+const ASSET = { SPY: "US stocks", EFA: "developed stocks outside the US", EEM: "emerging-market stocks", EWJ: "Japanese stocks",
+  TLT: "long Treasuries", IEF: "7 to 10-year Treasuries", LQD: "investment-grade credit", HYG: "high yield", GLD: "gold",
+  SLV: "silver", DBC: "commodities", USO: "oil", UUP: "the dollar", FXE: "the euro", FXY: "the yen" };
+const UNIV = { all: "all fifteen markets", equities: "equities", bonds: "bonds", commodities: "commodities", fx: "currencies",
+  risk: "risk assets", defensive: "defensive assets", ex_oil: "all but oil" };
+const FEAT = { slope_z: "the yield-curve slope", slope_change: "the slope's 3-month change", vix_z: "the VIX",
+  vix_change: "the VIX's 1-month change", rate_change: "the 10-year yield's 3-month change" };
+const FILT = { calm: "while the VIX is calm", stress: "while the VIX is high", steep: "while the curve is steep",
+  flat: "while the curve is flat or inverted", usd_up: "while the dollar rises", usd_down: "while the dollar falls" };
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+function pretty(label) {
+  const m = label.match(/^(\w+)\[([^\]]*)\]\s+(?:(\w+)\s+)?(volT|raw)\s+(daily|weekly|monthly)$/);
+  if (!m) return label;
+  const [, fam, inside, u, , reb] = m;
+  const p = Object.fromEntries(inside.split(" ").map(kv => kv.split("=")));
+  const where = u ? UNIV[u] : "";
+  let s;
+  if (fam === "trend") s = `${p.n}-day trend, ${where}`;
+  else if (fam === "ma_cross") s = `${p.fast}/${p.slow}-day average cross, ${where}`;
+  else if (fam === "reversal") s = `${p.n}-day reversal${+p.z > 0 ? " past one sigma" : ""}, ${where}`;
+  else if (fam === "cross_section") s = `top and bottom ${p.k} by ${p.n}-day return, ${where}`;
+  else if (fam === "regime") s = `${p.n}-day trend ${FILT[p.filter]}, ${where}`;
+  else if (fam === "lead_lag") s = `${cap(ASSET[p.lead])} leads ${ASSET[p.target]} (${p.n} days)`;
+  else if (fam === "macro") s = `${cap(FEAT[p.feature])} ${+p.side > 0 ? "times" : "fades"} ${ASSET[p.target]}`;
+  else s = label;
+  return `${cap(s)}, ${reb}`;
+}
+
+/* ---------- the sky: every bird is one flight ---------- */
+const sky = document.getElementById("sky");
+let skyDone = false;
+function drawSky(progress) {
+  const hero = document.getElementById("top");
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const W = hero.clientWidth, H = hero.clientHeight;
+  if (sky.width !== Math.round(W * dpr) || sky.height !== Math.round(H * dpr)) { sky.width = Math.round(W * dpr); sky.height = Math.round(H * dpr); }
+  const g = sky.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+  const grd = g.createLinearGradient(0, 0, 0, H);
+  grd.addColorStop(0, "#0a0e13"); grd.addColorStop(1, "#0e1520");
+  g.fillStyle = grd; g.fillRect(0, 0, W, H);
+  const F = D.flock, n = F.sr_in.length;
+  const lo = -1.6, hi = 1.6;
+  const inner = document.querySelector(".hero-inner");
+  const narrow = W < 640;
+  const band0 = Math.max(inner.offsetTop + inner.offsetHeight + 52, H * 0.5), band1 = H - (narrow ? 64 : 46);
+  const xOf = v => W * 0.04 + (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo) * W * 0.92;
+  const lanes = D.family_order.length;
+  const groups = { dim: [], rust: [], amber: [] };
+  const lead = D.family_order.indexOf("lead_lag");
+  for (let i = 0; i < n; i++) {
+    const h1 = Math.sin(i * 12.9898) * 43758.5453, h2 = Math.sin(i * 78.233) * 12345.6789;
+    const r1 = h1 - Math.floor(h1), r2 = h2 - Math.floor(h2);
+    const tx = xOf(F.sr_in[i]);
+    const ty = band0 + (F.family[i] + r2) / lanes * (band1 - band0);
+    const sx = r1 * W, sy = r2 * H * 0.7;
+    const delay = r1 * 0.35, t = Math.max(0, Math.min(1, (progress - delay) / (1 - 0.35)));
+    const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const x = sx + (tx - sx) * e, y = sy + (ty - sy) * e + Math.sin((progress * 9 + r1 * 6)) * 6 * (1 - e);
+    const flap = 1 - e * 0.6;
+    const key = D.top_set[i] ? "amber" : (F.family[i] === lead ? "rust" : "dim");
+    groups[key].push([x, y, flap]);
+  }
+  const drawGroup = (pts, color, s, alpha) => {
+    g.strokeStyle = color; g.globalAlpha = alpha; g.lineWidth = 1; g.beginPath();
+    for (const [x, y, f] of pts) {
+      g.moveTo(x - s, y - s * 0.55 * f); g.quadraticCurveTo(x - s * 0.45, y - s * 0.6 * f, x, y);
+      g.quadraticCurveTo(x + s * 0.45, y - s * 0.6 * f, x + s, y - s * 0.55 * f);
+    }
+    g.stroke(); g.globalAlpha = 1;
+  };
+  drawGroup(groups.dim, "#c9c2b3", 2.6, 0.32);
+  drawGroup(groups.rust, "#e0805f", 2.6, 0.55);
+  drawGroup(groups.amber, "#f2b441", 3.4, 0.95);
+  if (progress >= 1) {
+    const wx = xOf(D.winner.sharpe_in);
+    g.fillStyle = "#8a93a0"; g.font = "11px 'IBM Plex Mono', monospace"; g.textAlign = "center";
+    const axisY = band1 + 24;
+    for (const v of [-1, 0, 1]) g.fillText((v < 0 ? MINUS : "") + Math.abs(v).toFixed(1), xOf(v), axisY);
+    g.textAlign = "right"; g.fillText("in-sample Sharpe", W * 0.96, narrow ? axisY + 18 : axisY);
+    g.font = `600 ${narrow ? 18 : 20}px Caveat, cursive`;
+    g.textAlign = "left"; g.fillStyle = "#c3bcae"; g.fillText("every bird is one backtest", W * 0.04, narrow ? axisY + 18 : band0 - 14);
+    g.textAlign = "right"; g.fillStyle = "#ffd27a"; g.fillText(`the best flight, ${fmt(D.winner.sharpe_in)}`, Math.min(W - 8, wx + 2), band0 - 14);
+  }
+}
+function animateSky() {
+  if (STILL) { drawSky(1); skyDone = true; return; }
+  const t0 = performance.now(), dur = 3600;
+  const step = now => {
+    const p = Math.min(1, (now - t0) / dur);
+    drawSky(p);
+    if (p < 1) requestAnimationFrame(step); else skyDone = true;
+  };
+  requestAnimationFrame(step);
+}
+
+/* ---------- I. the winner against the best flights of rotated calendars ---------- */
+const isPaper = () => document.documentElement.classList.contains("paper");
+function drawWinner() {
+  const box = document.getElementById("winner");
+  const W = Math.max(320, box.clientWidth), small = W < 620, paper = isPaper();
+  const H = paper ? 250 : (small ? 330 : 380);
+  const m = { l: 44, r: small ? 10 : 20, t: small ? 70 : 44, b: 28 };
+  const s = svgIn(box, W, H);
+  const dates = D.winner.dates.map(d => Date.parse(d));
+  const x0 = dates[0], x1 = dates[dates.length - 1];
+  const all = D.winner.values.concat(...D.ghosts.map(g => g.values));
+  const y0 = Math.min(0, ...all) - 5, y1 = Math.max(...all) + 6;
+  const X = t => m.l + (t - x0) / (x1 - x0) * (W - m.l - m.r);
+  const Y = v => H - m.b - (v - y0) / (y1 - y0) * (H - m.t - m.b);
+  for (let y = 2010; y <= 2026; y += small ? 4 : 2) {
+    const xx = X(Date.parse(`${y}-01-01`));
+    el("line", { x1: xx, x2: xx, y1: m.t, y2: H - m.b, stroke: css("--faint") }, s);
+    text(y, xx, H - m.b + 18, { "text-anchor": "middle" }, s);
+  }
+  const step = (y1 - y0) > 120 ? 40 : 20;
+  for (let v = Math.ceil(y0 / step) * step; v <= y1; v += step) {
+    el("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: v === 0 ? css("--rule") : css("--faint") }, s);
+    text((v < 0 ? MINUS : "") + Math.abs(v) + "%", m.l - 6, Y(v) + 4, { "text-anchor": "end" }, s);
+  }
+  const k = D.winner.split_index, sx = X(dates[k]);
+  el("rect", { x: sx, y: m.t, width: W - m.r - sx, height: H - m.t - m.b, fill: css("--sky2"), opacity: 0.6 }, s);
+  el("line", { x1: sx, x2: sx, y1: m.t, y2: H - m.b, stroke: css("--dim"), "stroke-dasharray": "3 4" }, s);
+  const path = (vals, from, to) => vals.slice(from, to).map((v, i) => `${i ? "L" : "M"}${X(dates[from + i]).toFixed(1)},${Y(v).toFixed(1)}`).join("");
+  for (const gh of D.ghosts) el("path", { d: path(gh.values, 0, gh.values.length), fill: "none", stroke: css("--ghost"), "stroke-width": 1, opacity: 0.5 }, s);
+  el("path", { d: path(D.winner.values, 0, k + 1), fill: "none", stroke: css("--amber"), "stroke-width": 2.2 }, s);
+  el("path", { d: path(D.winner.values, k, D.winner.values.length), fill: "none", stroke: css("--ink"), "stroke-width": 1.7 }, s);
+  text(small ? `Sharpe ${fmt(D.winner.sharpe_in)}` : `in sample: Sharpe ${fmt(D.winner.sharpe_in)}`, m.l + 8, m.t + 16, { class: "big", style: `fill:${css("--amber")}` }, s);
+  text(small ? `after: ${fmt(D.winner.sharpe_out)}` : `after 2016: Sharpe ${fmt(D.winner.sharpe_out)}`, sx + 8, H - m.b - 10, { class: "big" }, s);
+  const items = [[css("--amber"), 2.2, "the winner, in sample"], [css("--ink"), 1.7, "the winner, after"], [css("--ghost"), 1, "best flights of 16 rotated calendars"]];
+  let lx = m.l, ly = 14;
+  for (const [c, w, t] of items) {
+    const width = 26 + t.length * 7.2;
+    if (lx + width > W - m.r) { lx = m.l; ly += 18; }
+    el("line", { x1: lx, x2: lx + 18, y1: ly - 4, y2: ly - 4, stroke: c, "stroke-width": w }, s);
+    text(t, lx + 24, ly, { class: "lab" }, s);
+    lx += width + 18;
+  }
+}
+
+/* ---------- I. fly a night ---------- */
+let flown = [];
+function drawNights() {
+  const box = document.getElementById("nights");
+  const W = Math.max(300, box.clientWidth), H = 150;
+  const m = { l: 12, r: 12, t: 20, b: 30 };
+  const s = svgIn(box, W, H);
+  const lo = 0.7, hi = 1.6, bin = 0.02;
+  const X = v => m.l + (v - lo) / (hi - lo) * (W - m.l - m.r);
+  el("line", { x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b, stroke: css("--rule") }, s);
+  for (let v = 0.8; v <= 1.6001; v += 0.2) text(v.toFixed(1), X(v), H - m.b + 16, { "text-anchor": "middle" }, s);
+  text("best Sharpe of the night", W - m.r, H - 4, { "text-anchor": "end" }, s);
+  const wx = X(D.winner.sharpe_in);
+  el("line", { x1: wx, x2: wx, y1: m.t - 8, y2: H - m.b, stroke: css("--amber"), "stroke-width": 2 }, s);
+  text(`real winner ${fmt(D.winner.sharpe_in)}`, wx + 6, m.t - 2, { style: `fill:${css("--amber")}` }, s);
+  const counts = {};
+  const shown = flown.length ? flown : (STILL || document.documentElement.classList.contains("paper") ? D.null_best.map((_, i) => i) : []);
+  for (const i of shown) {
+    const v = D.null_best[i], b = Math.round(v / bin);
+    counts[b] = (counts[b] || 0) + 1;
+    const cx = X(b * bin), cy = H - m.b - 4 - (counts[b] - 1) * 5.2;
+    el("circle", { cx, cy, r: 2.3, fill: v >= D.winner.sharpe_in ? css("--ink") : css("--ghost") }, s);
+  }
+}
+function flyNight(i) {
+  flown.push(i);
+  const v = D.null_best[i], beat = flown.filter(j => D.null_best[j] >= D.winner.sharpe_in).length;
+  document.getElementById("nightline").innerHTML =
+    `Night ${flown.length}: the best flight was <i>${pretty(D.null_best_names[i])}</i>, Sharpe <i>${fmt(v)}</i>${v >= D.winner.sharpe_in ? ", better than the real winner" : ""}.` +
+    `<br>Nights flown <i>${flown.length}</i> · better than the real winner <i>${beat}</i> (${Math.round(100 * beat / flown.length)}%)`;
+  drawNights();
+}
+let order = [];
+function nextNight() {
+  if (!order.length) order = D.null_best.map((_, i) => i).sort(() => Math.random() - 0.5).filter(i => !flown.includes(i));
+  if (order.length) flyNight(order.pop());
+}
+document.getElementById("one").onclick = nextNight;
+document.getElementById("all").onclick = () => { let left = D.null_best.length - flown.length; const tick = () => { if (left-- > 0) { nextNight(); setTimeout(tick, 18); } }; tick(); };
+document.getElementById("reset").onclick = () => { flown = []; order = []; document.getElementById("nightline").innerHTML = `Of all ${D.null_best.length} nights, ${D.p_nights} found a better best flight than the real winner.`; drawNights(); };
+
+/* ---------- II. the flock in lanes ---------- */
+let birdPts = [];
+function drawBirds() {
+  const box = document.getElementById("birds");
+  const W = Math.max(320, box.clientWidth), small = W < 600;
+  const label = small ? 0 : 230, laneH = isPaper() ? 30 : (small ? 50 : 46), top = small ? 16 : 30;
+  const fams = D.family_order, H = top + fams.length * laneH + (small ? fams.length * 16 : 0) + 34;
+  const s = svgIn(box, W, H);
+  const lo = -1.6, hi = 1.6, x0 = label + 8, x1 = W - (small ? 8 : 132);
+  const X = v => x0 + (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo) * (x1 - x0);
+  const laneY = f => top + f * (laneH + (small ? 16 : 0)) + (small ? 16 : 0);
+  for (const v of [-1, 0, 1]) {
+    el("line", { x1: X(v), x2: X(v), y1: top - 6, y2: H - 30, stroke: v === 0 ? css("--rule") : css("--faint") }, s);
+    text((v < 0 ? MINUS : "") + Math.abs(v).toFixed(1), X(v), H - 14, { "text-anchor": "middle" }, s);
+  }
+  text("in-sample Sharpe", x1, H - 2, { "text-anchor": "end" }, s);
+  for (const [v, lab] of [[D.null_mean_best, "luck's best, average"], [D.bar95, "95%"]]) {
+    el("line", { x1: X(v), x2: X(v), y1: top - 14, y2: H - 30, stroke: css("--soft"), "stroke-dasharray": "2 3" }, s);
+    text(lab, X(v) + (lab === "95%" ? 4 : -4), top - 16, { "text-anchor": lab === "95%" ? "start" : "end", class: "lab" }, s);
+  }
+  const lead = fams.indexOf("lead_lag");
+  fams.forEach((f, i) => {
+    const fy = laneY(i), st = D.families[f];
+    if (!small) {
+      text(D.family_names[f], 0, fy + laneH / 2 - 2, { class: "lab", style: i === lead ? `fill:${css("--rust")}` : "" }, s);
+      text(`${st.n} flights · ${fmt(st.real_in)} → ${fmt(st.real_out)}`, 0, fy + laneH / 2 + 13, {}, s);
+    } else {
+      text(`${D.family_names[f]} · ${fmt(st.real_in)} → ${fmt(st.real_out)}`, 0, fy - 4, { class: "lab", style: i === lead ? `fill:${css("--rust")}` : "" }, s);
+    }
+    el("line", { x1: x0, x2: x1, y1: fy + laneH, y2: fy + laneH, stroke: css("--faint") }, s);
+  });
+  const F = D.flock, n = F.sr_in.length;
+  const paths = { dim: "", rust: "", amber: "" };
+  birdPts = [];
+  for (let i = 0; i < n; i++) {
+    const h = Math.sin(i * 78.233) * 12345.6789, r = h - Math.floor(h);
+    const x = X(F.sr_in[i]), y = laneY(F.family[i]) + 7 + r * (laneH - 12), sz = D.top_set[i] ? 3.4 : 2.5;
+    const key = D.top_set[i] ? "amber" : (F.family[i] === lead ? "rust" : "dim");
+    paths[key] += `M${(x - sz).toFixed(1)},${(y - sz * 0.55).toFixed(1)}Q${(x - sz * 0.45).toFixed(1)},${(y - sz * 0.6).toFixed(1)} ${x.toFixed(1)},${y.toFixed(1)}Q${(x + sz * 0.45).toFixed(1)},${(y - sz * 0.6).toFixed(1)} ${(x + sz).toFixed(1)},${(y - sz * 0.55).toFixed(1)}`;
+    birdPts.push([x, y, i]);
+  }
+  el("path", { d: paths.dim, fill: "none", stroke: css("--soft"), "stroke-width": 0.9, opacity: 0.45 }, s);
+  el("path", { d: paths.rust, fill: "none", stroke: css("--rust"), "stroke-width": 0.9, opacity: 0.75 }, s);
+  el("path", { d: paths.amber, fill: "none", stroke: css("--amber"), "stroke-width": 1.4 }, s);
+  if (!small) text(`${D.top.families.lead_lag} of the top ${D.top.count}`, x1 + 10, laneY(lead) + laneH / 2 + 4, { style: `fill:${css("--rust")}` }, s);
+  box.onmousemove = ev => {
+    const r = box.getBoundingClientRect(), sc = W / r.width;
+    const mx = (ev.clientX - r.left) * sc, my = (ev.clientY - r.top) * sc;
+    let best = null, bd = 64;
+    for (const p of birdPts) { const d = (p[0] - mx) ** 2 + (p[1] - my) ** 2; if (d < bd) { bd = d; best = p; } }
+    const tip = document.getElementById("tip");
+    if (!best) { tip.style.opacity = 0; return; }
+    const i = best[2];
+    tip.innerHTML = `${pretty(F.names[i])}<br>Sharpe <i>${fmt(F.sr_in[i])}</i> in sample, <i>${fmt(F.sr_out[i])}</i> after`;
+    tip.style.left = Math.min(ev.pageX + 14, document.documentElement.clientWidth - 300) + "px";
+    tip.style.top = ev.pageY + 14 + "px";
+    tip.style.opacity = 1;
+  };
+  box.onmouseleave = () => { document.getElementById("tip").style.opacity = 0; };
+}
+
+/* ---------- III. families: timing against what came after ---------- */
+const SHORT = { trend: "Trend", ma_cross: "Average cross", regime: "Trend by regime", cross_section: "Cross-section",
+  reversal: "Reversal", lead_lag: "Lead-lag", macro: "Macro indicator" };
+function drawFamilies() {
+  const box = document.getElementById("families");
+  const W = Math.max(320, box.clientWidth), small = W < 600, H = isPaper() ? 240 : (small ? 340 : 390);
+  const m = { l: 46, r: small ? 14 : 24, t: 24, b: 44 };
+  const s = svgIn(box, W, H);
+  const tx = D.family_order.map(f => D.families[f].timing), ty = D.family_order.map(f => D.families[f].real_out);
+  const xs = [Math.min(...tx, 0) - 0.06, Math.max(...tx) + 0.06], ys = [Math.min(...ty) - 0.08, Math.max(...ty) + 0.1];
+  const X = v => m.l + (v - xs[0]) / (xs[1] - xs[0]) * (W - m.l - m.r);
+  const Y = v => H - m.b - (v - ys[0]) / (ys[1] - ys[0]) * (H - m.t - m.b);
+  el("rect", { x: X(0.1), y: m.t, width: X(xs[1]) - X(0.1), height: Y(0) - m.t, fill: css("--good"), opacity: 0.07 }, s);
+  el("rect", { x: X(xs[0]), y: Y(0), width: X(0.1) - X(xs[0]), height: H - m.b - Y(0), fill: css("--bad"), opacity: 0.07 }, s);
+  for (let v = Math.ceil(xs[0] * 20) / 20; v <= xs[1] + 1e-9; v += 0.05) {
+    const r = Math.round(v * 20) / 20;
+    el("line", { x1: X(r), x2: X(r), y1: m.t, y2: H - m.b, stroke: r === 0 ? css("--rule") : css("--faint") }, s);
+    text((r > 0 ? "+" : "") + fmt(r, 2), X(r), H - m.b + 16, { "text-anchor": "middle" }, s);
+  }
+  for (let v = Math.ceil(ys[0] * 10) / 10; v <= ys[1] + 1e-9; v += 0.1) {
+    const r = Math.round(v * 10) / 10;
+    el("line", { x1: m.l, x2: W - m.r, y1: Y(r), y2: Y(r), stroke: r === 0 ? css("--rule") : css("--faint") }, s);
+    text(fmt(r, 1), m.l - 6, Y(r) + 4, { "text-anchor": "end" }, s);
+  }
+  text(small ? "timing in sample" : "timing in sample: Sharpe minus its rotated calendars", W - m.r, H - 6, { "text-anchor": "end" }, s);
+  text("Sharpe after 2016", m.l + 4, m.t - 8, {}, s);
+  text("timing, and it lasted", W - m.r - 6, m.t + 18, { "text-anchor": "end", class: "note" }, s);
+  text("no timing, and it didn't", m.l + 6, H - m.b - 10, { class: "note" }, s);
+  const boxes = [[W - m.r - 190, m.t, W - m.r, m.t + 24], [m.l, H - m.b - 30, m.l + 200, H - m.b]];
+  const pts = D.family_order.map(f => {
+    const st = D.families[f];
+    return { f, st, cx: X(st.timing), cy: Y(st.real_out), r: 4 + Math.sqrt(st.n) / 4.2 };
+  });
+  for (const p of pts) boxes.push([p.cx - p.r, p.cy - p.r, p.cx + p.r, p.cy + p.r]);
+  const hit = b => boxes.some(o => !(b[2] < o[0] || b[0] > o[2] || b[3] < o[1] || b[1] > o[3]));
+  for (const p of pts) {
+    const colour = p.f === "lead_lag" ? css("--rust") : (p.st.timing >= 0.1 ? css("--good") : css("--bad"));
+    el("circle", { cx: p.cx, cy: p.cy, r: p.r, fill: colour, opacity: 0.88, stroke: css("--sky"), "stroke-width": 1 }, s);
+  }
+  for (const p of pts) {
+    const name = small ? SHORT[p.f] : D.family_names[p.f], w = name.length * 7.1, h = 13;
+    const tries = [[p.cx + p.r + 6, p.cy + 4, "start"], [p.cx - p.r - 6, p.cy + 4, "end"], [p.cx - w / 2, p.cy - p.r - 7, "start"],
+                   [p.cx - w / 2, p.cy + p.r + 15, "start"], [p.cx + p.r + 6, p.cy - 10, "start"], [p.cx + p.r + 6, p.cy + 18, "start"],
+                   [p.cx - p.r - 6, p.cy - 10, "end"], [p.cx - p.r - 6, p.cy + 18, "end"]];
+    let pick = tries[0];
+    for (const t of tries) {
+      const bx = t[2] === "end" ? [t[0] - w, t[1] - h + 3, t[0], t[1] + 3] : [t[0], t[1] - h + 3, t[0] + w, t[1] + 3];
+      if (bx[0] >= 2 && bx[2] <= W - 2 && bx[1] >= m.t && bx[3] <= H - m.b && !hit(bx)) { pick = t; boxes.push(bx); break; }
+    }
+    text(name, pick[0], pick[1], { class: "lab", "text-anchor": pick[2] }, s);
+  }
+}
+
+function drawAll() {
+  drawSky(STILL || skyDone ? 1 : 0.0001);
+  drawWinner(); drawNights(); drawBirds(); drawFamilies();
+}
+let resizeTimer;
+addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (skyDone || STILL) drawSky(1); drawWinner(); drawNights(); drawBirds(); drawFamilies(); }, 120); });
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
+  drawWinner(); drawNights(); drawBirds(); drawFamilies(); animateSky();
+  window.__note = { ready: true, flights: D.flock.sr_in.length, winner: D.winner.sharpe_in };
+});
+</script>
+</body>
+</html>
